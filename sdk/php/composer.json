@@ -1,0 +1,33 @@
+{
+    "name": "hitechcloud-vietnam/vneid-sdk",
+    "description": "Official PHP SDK for the HiTechCloud eKYC — VNeID gateway",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["hitechcloud", "vneid", "ekyc", "cccd", "identity", "c06", "sdk"],
+    "authors": [
+        { "name": "HiTechCloud", "email": "support@hitechcloud.vn" }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "ext-openssl": "*",
+        "ext-json": "*",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5 || ^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "HiTechCloud\\VNeID\\": "src/"
+        },
+        "files": [
+            "src/Exceptions.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "HiTechCloud\\VNeID\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable"
+}

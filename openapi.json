@@ -1,0 +1,402 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "HiTechCloud eKYC — VNeID Gateway API",
+    "description": "Official API for the HiTechCloud eKYC — VNeID connector (AgentGW). Verify chip CCCD (eID), share and verify citizen data from VNeID, biometric face matching, VNeID SSO (OAuth2/OIDC), organization identity, and digital certificate (CTS/SmartCA) issuance. Two authentication layers: eID services are signed with the CSK private key (RSA-SHA256); VNeID services use an api_key plus a per-service target_code. Citizen data (userInfo, biometricResult) is returned as a JWS (ES256) string to be verified with the C06 public key.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "HiTechCloud Support",
+      "email": "support@hitechcloud.vn",
+      "url": "https://ekyc-c06.hitechcloud.vn"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    { "url": "https://ekyc-c06.hitechcloud.vn", "description": "Production" },
+    { "url": "https://ekyc-c06-sandbox.hitechcloud.vn", "description": "Sandbox" }
+  ],
+  "tags": [
+    { "name": "eID", "description": "Chip CCCD verification (RSA-SHA256 signed)" },
+    { "name": "DataShare", "description": "Share citizen data from VNeID" },
+    { "name": "Biometric", "description": "Face matching / liveness (v2)" },
+    { "name": "VerifyInfo", "description": "True/False verification against the population DB" },
+    { "name": "Organization", "description": "Organization identity (type=ORG)" },
+    { "name": "SSO", "description": "VNeID SSO (OAuth2/OIDC)" },
+    { "name": "Consent", "description": "Receive-result and withdraw-consent reporting" },
+    { "name": "CTS", "description": "Digital certificate (SmartCA) issuance" }
+  ],
+  "paths": {
+    "/eid/api/verify/request": {
+      "post": {
+        "tags": ["eID"],
+        "summary": "Verify chip CCCD DS Certificate",
+        "description": "Verify the DS Certificate read from a chip-based CCCD via the RAR center. The request is signed with the CSK private key (RSA-SHA256). Requires mTLS client certificate in production.",
+        "operationId": "verifyEid",
+        "security": [{ "EidSignature": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "name": "request_time", "in": "header", "required": true, "schema": { "type": "string" }, "description": "yyyyMMddHHmmss (GMT+7)" },
+          { "name": "license_id", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "device_type", "in": "header", "required": true, "schema": { "type": "string" }, "example": "WEB" },
+          { "name": "dia_chi", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Province-level address, no diacritics" },
+          { "name": "signature", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Base64 RSA-SHA256 signature" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id_card", "dscert"],
+                "properties": {
+                  "id_card": { "type": "string", "description": "12-digit CCCD number" },
+                  "dscert": { "type": "string", "description": "Base64 DS Certificate read from the chip" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "responds": {
+                      "type": "object",
+                      "properties": {
+                        "responseId": { "type": "string" },
+                        "exitcode": { "type": "integer", "description": "0 = valid" },
+                        "result": { "type": "boolean" },
+                        "message": { "type": "string" },
+                        "time": { "type": "integer" }
+                      }
+                    },
+                    "signature": { "type": "string", "description": "RSA-SHA256 signature of the eID system" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid signature / license_id" },
+          "403": { "description": "IP not whitelisted or connection suspended" }
+        }
+      }
+    },
+    "/api/tcdn/{serviceCode}/api/agent/init": {
+      "post": {
+        "tags": ["DataShare", "VerifyInfo", "Organization", "CTS"],
+        "summary": "Initialize a share/verify transaction",
+        "description": "Create a consent transaction and obtain a txnId used to redirect the citizen to VNeID. Use service-code share-info, verify-info, biometric-share-info, etc.",
+        "operationId": "agentInit",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ServiceCodePath" },
+          { "$ref": "#/components/parameters/ApiKeyHeader" },
+          { "$ref": "#/components/parameters/TargetCodeHeader" },
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "$ref": "#/components/parameters/RequestTimeHeader" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["citizenPid"],
+                "properties": {
+                  "citizenPid": { "type": "string", "description": "12-digit citizen identity number" },
+                  "fullName": { "type": "string", "description": "Required for verify services" },
+                  "birthDate": { "type": "string", "description": "dd-MM-yyyy; required for verify services" },
+                  "type": { "type": "string", "enum": ["PER", "ORG"], "description": "ORG for organization identity" },
+                  "shareOrgNumber": { "type": "string", "description": "Organization identity number (required when type=ORG)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InitResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tcdn/{serviceCode}/api/get-transaction": {
+      "post": {
+        "tags": ["DataShare", "VerifyInfo", "Organization"],
+        "summary": "Get citizen data (no face image)",
+        "description": "Retrieve the citizen data (JWS userInfo) after the citizen consents on VNeID. Max 3 calls, transactionId expires in 30 minutes.",
+        "operationId": "getTransaction",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ServiceCodePath" },
+          { "$ref": "#/components/parameters/ApiKeyHeader" },
+          { "$ref": "#/components/parameters/TargetCodeHeader" },
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "$ref": "#/components/parameters/RequestTimeHeader" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["transactionId"],
+                "properties": { "transactionId": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Citizen data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransactionResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tcdn/{serviceCode}/v2/api/get-transaction": {
+      "post": {
+        "tags": ["Biometric", "DataShare"],
+        "summary": "Get citizen data + biometric result (with face image)",
+        "description": "Retrieve citizen data together with the biometric result. Send faceImage (base64 from the SDK). Set request_type to sdk-match or sdk-liveness-match.",
+        "operationId": "getTransactionV2",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ServiceCodePath" },
+          { "$ref": "#/components/parameters/ApiKeyHeader" },
+          { "$ref": "#/components/parameters/TargetCodeHeader" },
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "$ref": "#/components/parameters/RequestTimeHeader" },
+          { "name": "request_type", "in": "header", "schema": { "type": "string", "enum": ["sdk-match", "sdk-liveness-match"] } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["transactionId"],
+                "properties": {
+                  "transactionId": { "type": "string" },
+                  "faceImage": { "type": "string", "description": "Base64 face image from the SDK" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Citizen data with biometric result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransactionResponse" }
+              }
+            }
+          },
+          "501": { "description": "Biometric error" }
+        }
+      }
+    },
+    "/api/tcdn/{serviceCode}/agent/account/receive-result": {
+      "post": {
+        "tags": ["Consent", "CTS"],
+        "summary": "Report processing result to VNeID",
+        "description": "Return the processing result to VNeID (required for VNeID-initiated flows). Also used for withdraw-consent-result and create-smartca-account.",
+        "operationId": "receiveResult",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ServiceCodePath" },
+          { "$ref": "#/components/parameters/ApiKeyHeader" },
+          { "$ref": "#/components/parameters/TargetCodeHeader" },
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "$ref": "#/components/parameters/RequestTimeHeader" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "additionalProperties": true }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acknowledged",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Envelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tcdn/{serviceCode}/api/vneid/form/sso": {
+      "post": {
+        "tags": ["SSO"],
+        "summary": "Exchange authorization code for tokens",
+        "description": "OAuth2 authorization_code token exchange. Use service-code sso-token. Body is application/x-www-form-urlencoded.",
+        "operationId": "ssoToken",
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ServiceCodePath" },
+          { "$ref": "#/components/parameters/ApiKeyHeader" },
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "$ref": "#/components/parameters/RequestTimeHeader" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["grant_type", "client_id", "client_secret", "code", "redirect_uri"],
+                "properties": {
+                  "grant_type": { "type": "string", "example": "authorization_code" },
+                  "client_id": { "type": "string" },
+                  "client_secret": { "type": "string" },
+                  "code": { "type": "string" },
+                  "redirect_uri": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token set",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tcdn/{serviceCode}/api/vneid/sso": {
+      "get": {
+        "tags": ["SSO"],
+        "summary": "Get SSO user info",
+        "description": "Retrieve the authenticated VNeID user info. Use service-code sso-userinfo and a Bearer access token.",
+        "operationId": "ssoUserInfo",
+        "security": [{ "ApiKeyAuth": [] }, { "BearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ServiceCodePath" },
+          { "$ref": "#/components/parameters/ApiKeyHeader" },
+          { "$ref": "#/components/parameters/RequestIdHeader" },
+          { "$ref": "#/components/parameters/RequestTimeHeader" }
+        ],
+        "responses": {
+          "200": {
+            "description": "User info (signature is a JWS string)",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "api_key",
+        "description": "VNeID service API key issued by HiTechCloud"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "VNeID SSO access token"
+      },
+      "EidSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "signature",
+        "description": "Base64 RSA-SHA256 signature of request_id|request_time|license_id|device_type|dia_chi|id_card|dscert, signed with the CSK private key"
+      }
+    },
+    "parameters": {
+      "ServiceCodePath": {
+        "name": "serviceCode",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "Service code, e.g. share-info, verify-info, biometric-share-info, face-matching, sso-token, create-smartca-account"
+      },
+      "ApiKeyHeader": { "name": "api_key", "in": "header", "required": true, "schema": { "type": "string" } },
+      "TargetCodeHeader": { "name": "target_code", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Purpose code shown to the citizen on VNeID" },
+      "RequestIdHeader": { "name": "request_id", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Unique request id (UUID v4)" },
+      "RequestTimeHeader": { "name": "request_time", "in": "header", "required": true, "schema": { "type": "string" }, "description": "ddMMyyyyHHmmss for VNeID services" }
+    },
+    "schemas": {
+      "Envelope": {
+        "type": "object",
+        "properties": {
+          "responseCode": { "type": "string" },
+          "description": { "type": "string" },
+          "responseTime": { "type": "string" }
+        }
+      },
+      "InitResponse": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "responseCode": { "type": "string" },
+          "responseTime": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "txnId": { "type": "string" },
+              "requestId": { "type": "string" }
+            }
+          }
+        }
+      },
+      "TransactionResponse": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "responseCode": { "type": "string" },
+          "responseTime": { "type": "string" },
+          "data": { "type": "object", "additionalProperties": true },
+          "userInfo": { "type": "string", "description": "JWS ES256 string <header>.<payload>.<signature>" },
+          "biometricResult": { "type": "string", "description": "JWS ES256 string (v2 only)" }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string" },
+          "expires_in": { "type": "integer" },
+          "refresh_token": { "type": "string" },
+          "refresh_expires_in": { "type": "integer" },
+          "token_type": { "type": "string" },
+          "id_token": { "type": "string" },
+          "session_state": { "type": "string" },
+          "scope": { "type": "string" }
+        }
+      }
+    }
+  }
+}

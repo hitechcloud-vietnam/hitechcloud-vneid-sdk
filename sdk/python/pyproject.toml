@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hitechcloud-vneid"
+version = "1.0.0"
+description = "Official Python SDK for the HiTechCloud eKYC — VNeID gateway"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "HiTechCloud", email = "support@hitechcloud.vn" }]
+keywords = ["hitechcloud", "vneid", "ekyc", "cccd", "identity", "c06", "sdk"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+]
+dependencies = [
+    "requests>=2.25.0",
+    "cryptography>=3.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "responses>=0.23"]
+
+[project.urls]
+Homepage = "https://ekyc-c06.hitechcloud.vn"
+Repository = "https://github.com/hitechcloud-vietnam/hitechcloud-vneid-sdk"
+Documentation = "https://github.com/hitechcloud-vietnam/hitechcloud-vneid-sdk/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["hitechcloud_vneid*"]

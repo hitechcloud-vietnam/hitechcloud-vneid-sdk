@@ -1,0 +1,52 @@
+# ---- Secrets / keys (NEVER commit) ----
+*.key
+*.pem
+*.crt
+*.csr
+*.p12
+*.pfx
+.env
+.env.*
+
+# ---- Node.js ----
+node_modules/
+dist/
+*.tgz
+npm-debug.log*
+yarn-error.log*
+package-lock.json
+.eslintcache
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+.pytest_cache/
+.venv/
+venv/
+.mypy_cache/
+
+# ---- PHP ----
+/vendor/
+composer.lock
+.phpunit.result.cache
+
+# ---- Go ----
+bin/
+*.test
+*.out
+
+# ---- Java ----
+target/
+*.class
+*.jar
+.gradle/
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,31 @@
+{
+  "name": "@hitechcloud-vietnam/vneid-sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript/Node.js SDK for the HiTechCloud eKYC — VNeID gateway",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["hitechcloud", "vneid", "ekyc", "cccd", "identity", "c06", "sdk"],
+  "author": "HiTechCloud <support@hitechcloud.vn>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hitechcloud-vietnam/hitechcloud-vneid-sdk.git"
+  },
+  "dependencies": {
+    "axios": "^1.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
